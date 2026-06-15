@@ -238,7 +238,13 @@ export function Sticker({
         aria-hidden
       >
         <defs>
-          <filter id={`light-${def.id}`}>
+          <filter
+            id={`light-${def.id}`}
+            x="-40%"
+            y="-40%"
+            width="180%"
+            height="180%"
+          >
             <feGaussianBlur stdDeviation="1" result="blur" />
             <feSpecularLighting
               in="blur"
@@ -252,7 +258,13 @@ export function Sticker({
             <feComposite in="spec" in2="SourceGraphic" result="lit" />
             <feComposite in="lit" in2="SourceAlpha" operator="in" />
           </filter>
-          <filter id={`lightF-${def.id}`}>
+          <filter
+            id={`lightF-${def.id}`}
+            x="-40%"
+            y="-40%"
+            width="180%"
+            height="180%"
+          >
             <feGaussianBlur stdDeviation="8" result="blur" />
             <feSpecularLighting
               in="blur"
