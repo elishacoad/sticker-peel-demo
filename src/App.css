@@ -1,0 +1,275 @@
+:root {
+  --bg: #efe9dd;
+  --fg: #1a1a1c;
+  --fg-dim: #74706a;
+}
+
+/* Registered so the mask-gradient stops animate smoothly between
+   rest/hover/lifted instead of snapping. */
+@property --peel-current {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 0%;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  height: 100%;
+  width: 100%;
+}
+
+body {
+  background: var(--bg);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.011em;
+  color: var(--fg);
+  overflow: hidden;
+}
+
+.stage {
+  position: fixed;
+  inset: 0;
+  background-image: radial-gradient(rgba(0, 0, 0, 0.06) 1.2px, transparent 1.2px);
+  background-size: 18px 18px;
+}
+
+.svg-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.title {
+  position: fixed;
+  top: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 13px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  font-weight: 500;
+  pointer-events: none;
+  user-select: none;
+  z-index: 1;
+}
+
+/* ----- sticker structure ----- */
+
+.sticker-wrap {
+  position: absolute;
+  cursor: grab;
+  touch-action: none;
+  will-change: transform, filter;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  scale: 1;
+  /* The leading drop-shadow with transparent color and a large blur
+     widens the wrap's filter canvas so the descendant curl-shadow has
+     room to render without being clipped at the canvas edge. The second
+     drop-shadow is the actual ambient shadow that follows the wrap's
+     content alpha — naturally changing shape as the peel clip-path
+     and flap reveal different sticker geometry. */
+  filter: drop-shadow(0 0 80px transparent) var(--shadow-rest);
+  --peel-current: 0%;
+  transition:
+    scale var(--dur) var(--ease),
+    filter var(--dur) var(--ease),
+    --peel-current var(--dur) var(--ease);
+}
+
+.sticker-wrap:hover {
+  filter: drop-shadow(0 0 80px transparent) var(--shadow-hover);
+  --peel-current: var(--peel-hover);
+}
+.sticker-wrap.is-lifted {
+  filter: drop-shadow(0 0 80px transparent) var(--shadow-lifted);
+  --peel-current: var(--peel-lifted);
+}
+
+.sticker-wrap * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.sticker-wrap:hover { scale: var(--hover-scale); }
+.sticker-wrap.is-lifted { scale: var(--lift-scale); cursor: grabbing; }
+
+.sticker-container {
+  position: absolute;
+  top: var(--inner-pad, 0px);
+  left: var(--inner-pad, 0px);
+  width: var(--inner-size, 100%);
+  height: var(--inner-size, 100%);
+  transform: rotate(var(--peel-direction));
+  transform-origin: center;
+}
+
+/* Inner elements counter-rotate so the artwork stays upright while the
+   clip-path peel axis is the rotated frame's vertical axis. */
+.sticker-main > *,
+.flap > *,
+.flap-shadow-source > * {
+  width: 100%;
+  height: 100%;
+  transform: rotate(calc(-1 * var(--peel-direction)));
+  transform-origin: center;
+}
+
+
+/* Main sticker body — clip-path moves the "cut" line down on hover/lifted.
+   The padding lets the SVG outline filter extend beyond the bbox without
+   getting clipped at the edges. */
+.sticker-main {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  clip-path: polygon(
+    -15% var(--peel-offset),
+    115% var(--peel-offset),
+    115% 115%,
+    -15% 115%
+  );
+  transition: clip-path var(--dur) var(--ease);
+}
+
+.sticker-wrap:hover .sticker-main {
+  clip-path: polygon(
+    -15% calc(var(--peel-offset) + var(--peel-hover)),
+    115% calc(var(--peel-offset) + var(--peel-hover)),
+    115% 115%,
+    -15% 115%
+  );
+}
+
+.sticker-wrap.is-lifted .sticker-main {
+  clip-path: polygon(
+    -15% calc(var(--peel-offset) + var(--peel-lifted)),
+    115% calc(var(--peel-offset) + var(--peel-lifted)),
+    115% 115%,
+    -15% 115%
+  );
+}
+
+.sticker-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: url(#sticker-outline);
+  display: block;
+}
+
+/* Flap — mirrored copy of the sticker positioned above. Its clip-path
+   shows a horizontal slice from the top, sized to match the peel
+   amount. The flap's `top` is calc'd so the visible slice exactly meets
+   the main sticker's cut line. */
+.flap {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  top: calc(var(--peel-offset) * 2 - 100% - 1px);
+  clip-path: polygon(
+    -15% var(--peel-offset),
+    115% var(--peel-offset),
+    115% var(--peel-offset),
+    -15% var(--peel-offset)
+  );
+  transform: scaleY(-1);
+  transition: clip-path var(--dur) var(--ease), top var(--dur) var(--ease);
+}
+
+/* Outer "canvas" element whose only job is to give the SVG drop-shadow
+   filter a bbox big enough to render in. The filter is on this element
+   (not on .flap-shadow-source directly), so the shadow extent isn't
+   chopped at the inner element's rotated bbox edge. The inner
+   .flap-shadow-source keeps its original size/positioning, just nested
+   one level deeper. */
+.curl-shadow-canvas {
+  position: absolute;
+  inset: -50%;
+  pointer-events: none;
+}
+
+.curl-shadow-inner {
+  position: absolute;
+  inset: 25%;
+}
+
+/* Sibling of .flap (well, nested under .curl-shadow-canvas which is a
+   sibling) — uses mask-image (with fold-edge fade) instead of
+   clip-path to define the silhouette region. */
+.flap-shadow-source {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  top: calc(var(--peel-offset) * 2 - 100% - 1px);
+  transform: scaleY(-1);
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent calc(var(--peel-offset) - 8%),
+    black var(--peel-offset),
+    black calc(var(--peel-offset) + var(--peel-current) - 5%),
+    transparent calc(var(--peel-offset) + var(--peel-current))
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent calc(var(--peel-offset) - 8%),
+    black var(--peel-offset),
+    black calc(var(--peel-offset) + var(--peel-current) - 5%),
+    transparent calc(var(--peel-offset) + var(--peel-current))
+  );
+  transition: top var(--dur) var(--ease);
+}
+
+.flap-image-shadow {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: url(#sticker-back);
+  display: block;
+}
+
+.sticker-wrap:hover .flap {
+  clip-path: polygon(
+    -15% var(--peel-offset),
+    115% var(--peel-offset),
+    115% calc(var(--peel-offset) + var(--peel-hover)),
+    -15% calc(var(--peel-offset) + var(--peel-hover))
+  );
+  top: calc(var(--peel-offset) * 2 + var(--peel-hover) * 2 - 100% - 1px);
+}
+.sticker-wrap:hover .flap-shadow-source {
+  top: calc(var(--peel-offset) * 2 + var(--peel-hover) * 2 - 100% - 1px);
+}
+
+.sticker-wrap.is-lifted .flap {
+  clip-path: polygon(
+    -15% var(--peel-offset),
+    115% var(--peel-offset),
+    115% calc(var(--peel-offset) + var(--peel-lifted)),
+    -15% calc(var(--peel-offset) + var(--peel-lifted))
+  );
+  top: calc(var(--peel-offset) * 2 + var(--peel-lifted) * 2 - 100% - 1px);
+}
+.sticker-wrap.is-lifted .flap-shadow-source {
+  top: calc(var(--peel-offset) * 2 + var(--peel-lifted) * 2 - 100% - 1px);
+}
+
+.flap-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: url(#sticker-back);
+  display: block;
+}
+
