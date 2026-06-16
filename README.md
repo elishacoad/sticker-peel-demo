@@ -1,73 +1,26 @@
-# React + TypeScript + Vite
+# sticker-peel-demo
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Interactive sticker peel + drag effect built with React, Vite, and Framer Motion. Stickers can be picked up, dragged, rotated by sway, and re-placed — with a curled flap that casts its own shadow, an alpha-shape hit test, and a cursor-tracked shine band.
 
-Currently, two official plugins are available:
+## Run
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Then open the URL Vite prints. Tweak the effect live with the Leva panel in the top-right.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## What's in here
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+- `src/Sticker.tsx` — the main component. Peel geometry, flap shadow, shine tracking, drag + sway.
+- `src/pointerHitTest.ts` — single shared document `pointermove` listener (rAF-coalesced) that alpha-samples each sticker's PNG to gate `pointer-events`. One listener for the whole stage, not one per sticker.
+- `src/useAlphaMap.ts`, `src/usePeelOffset.ts` — image-analysis hooks used by the hit test and peel anchor.
+- `src/App.tsx` — stage, Leva knobs, sticker layout.
+- `src/data.ts` — sticker definitions (position, rotation, source PNG).
+
+## Notes
+
+- Built on React 19, Vite 8, framer-motion 12.
+- Pure visual demo — no persistence, no backend.
+- Knobs include shadow tuning, peel direction/amount, drag sway, motion easing.

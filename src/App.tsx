@@ -1,18 +1,11 @@
 import { useState } from "react";
 import { useControls, folder } from "leva";
 import { Sticker } from "./Sticker";
-import { PresetPanel } from "./PresetPanel";
 import { STICKERS } from "./data";
-import { House } from "./House";
 import "./App.css";
 
 function App() {
-  if (window.location.pathname === "/house") return <House />;
-  return <Demo />;
-}
-
-function Demo() {
-  const [values, set] = useControls(() => ({
+  const values = useControls({
     Sticker: folder({
       size: { value: 170, min: 80, max: 300, step: 2 },
       outlineRadius: { value: 5, min: 1, max: 14, step: 0.5 },
@@ -53,7 +46,7 @@ function Demo() {
       swayMax: { value: 18, min: 0, max: 60, step: 1 },
       swayGain: { value: 0.18, min: 0, max: 1, step: 0.01 },
     }),
-  }));
+  });
 
   const [order, setOrder] = useState<string[]>(STICKERS.map((s) => s.id));
   const bringToFront = (id: string) =>
@@ -109,8 +102,6 @@ function Demo() {
           bringToFront={() => bringToFront(s.id)}
         />
       ))}
-
-      <PresetPanel values={values} onLoad={(v) => set(v as never)} />
     </div>
   );
 }
