@@ -166,6 +166,54 @@ body {
   display: block;
 }
 
+/* Glossy diagonal shine band that fades in on hover. The outer div is
+   masked to the sticker silhouette so the stripe stays inside the
+   sticker shape. The inner div carries a 135° linear-gradient that
+   draws a soft-edged band of even brightness across the middle —
+   running corner-to-corner so the band reaches all the way across the
+   silhouette regardless of size. */
+.sticker-shine {
+  position: absolute;
+  inset: 0;
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-mode: alpha;
+  mask-mode: alpha;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.sticker-wrap:hover .sticker-shine {
+  opacity: 1;
+}
+
+@property --shine-pos {
+  syntax: "<percentage>";
+  inherits: true;
+  initial-value: 50%;
+}
+
+.sticker-shine-streak {
+  position: absolute;
+  inset: 0;
+  /* Bright band centred at --shine-pos along the 135° gradient axis.
+     JS sets --shine-pos to the cursor's projection on that axis, so
+     the band slides perpendicular to its length as the cursor moves. */
+  background: linear-gradient(
+    135deg,
+    transparent calc(var(--shine-pos, 50%) - 22%),
+    rgba(255, 255, 255, 0.4) calc(var(--shine-pos, 50%) - 8%),
+    rgba(255, 255, 255, 0.6) var(--shine-pos, 50%),
+    rgba(255, 255, 255, 0.4) calc(var(--shine-pos, 50%) + 8%),
+    transparent calc(var(--shine-pos, 50%) + 22%)
+  );
+  transition: --shine-pos 80ms linear;
+}
+
 /* Flap — mirrored copy of the sticker positioned above. Its clip-path
    shows a horizontal slice from the top, sized to match the peel
    amount. The flap's `top` is calc'd so the visible slice exactly meets

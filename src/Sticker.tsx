@@ -45,8 +45,8 @@ export function Sticker({
   const alphaMap = useAlphaMap(def.src);
   const liftedRef = useRef(lifted);
   liftedRef.current = lifted;
-  const lightRef = useRef<SVGFEPointLightElement>(null);
-  const lightFRef = useRef<SVGFEPointLightElement>(null);
+  const shineRef = useRef<HTMLDivElement>(null);
+  const flapShineRef = useRef<HTMLDivElement>(null);
 
   const rotation = useMotionValue(def.rot);
   const x = useMotionValue(0);
@@ -77,16 +77,17 @@ export function Sticker({
     rotation.set(def.rot + swayRef.current);
   };
 
+  // Slide the shine band along the streak's perpendicular axis as the
+  // cursor moves. Projecting the cursor onto the 135° gradient direction
+  // gives a 0-100% position; the CSS gradient stops use this as a CSS
+  // var so the bright band tracks under the cursor.
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
     const move = (e: MouseEvent) => {
       const rect = el.getBoundingClientRect();
-      // wrap center in world coords (rotation/scale preserves the center)
       const cx = rect.left + rect.width / 2;
       const cy = rect.top + rect.height / 2;
-      // cursor relative to wrap center, then un-rotate by wrap's rotation
-      // so the result is in the upright image's local coord frame
       const dx = e.clientX - cx;
       const dy = e.clientY - cy;
       const theta = (-rotation.get() * Math.PI) / 180;
@@ -94,13 +95,15 @@ export function Sticker({
       const s = Math.sin(theta);
       const localDx = dx * c - dy * s;
       const localDy = dx * s + dy * c;
-      // shift to image-local origin (top-left of the innerSize-sized image)
       const lx = localDx + knobs.size / 2;
       const ly = localDy + knobs.size / 2;
-      lightRef.current?.setAttribute("x", String(lx));
-      lightRef.current?.setAttribute("y", String(ly));
-      lightFRef.current?.setAttribute("x", String(lx));
-      lightFRef.current?.setAttribute("y", String(knobs.size - ly));
+      const front = (50 * (lx + ly)) / knobs.size;
+      // Flap content is scaleY(-1)-flipped, so its image-local y is
+      // mirrored relative to the front. Project with mirrored y so the
+      // band on the back tracks the same visual cursor position.
+      const back = (50 * (lx + (knobs.size - ly))) / knobs.size;
+      shineRef.current?.style.setProperty("--shine-pos", `${front}%`);
+      flapShineRef.current?.style.setProperty("--shine-pos", `${back}%`);
     };
     el.addEventListener("mousemove", move);
     return () => el.removeEventListener("mousemove", move);
@@ -238,46 +241,6 @@ export function Sticker({
         aria-hidden
       >
         <defs>
-          <filter
-            id={`light-${def.id}`}
-            x="-40%"
-            y="-40%"
-            width="180%"
-            height="180%"
-          >
-            <feGaussianBlur stdDeviation="1" result="blur" />
-            <feSpecularLighting
-              in="blur"
-              result="spec"
-              specularExponent={80}
-              specularConstant={knobs.lighting}
-              lightingColor="white"
-            >
-              <fePointLight ref={lightRef} x={0} y={0} z={70} />
-            </feSpecularLighting>
-            <feComposite in="spec" in2="SourceGraphic" result="lit" />
-            <feComposite in="lit" in2="SourceAlpha" operator="in" />
-          </filter>
-          <filter
-            id={`lightF-${def.id}`}
-            x="-40%"
-            y="-40%"
-            width="180%"
-            height="180%"
-          >
-            <feGaussianBlur stdDeviation="8" result="blur" />
-            <feSpecularLighting
-              in="blur"
-              result="spec"
-              specularExponent={60}
-              specularConstant={knobs.lighting * 6}
-              lightingColor="white"
-            >
-              <fePointLight ref={lightFRef} x={0} y={0} z={70} />
-            </feSpecularLighting>
-            <feComposite in="spec" in2="SourceGraphic" result="lit" />
-            <feComposite in="lit" in2="SourceAlpha" operator="in" />
-          </filter>
           {/* Outputs ONLY the shadow — does not merge SourceGraphic, so the
               source's white silhouette never paints. That lets us extend
               the mask past the peel area without revealing white outside
@@ -304,13 +267,23 @@ export function Sticker({
 
       <div className="sticker-container">
         <div className="sticker-main">
-          <div className="sticker-light" style={{ filter: `url(#light-${def.id})` }}>
+          <div className="sticker-light">
             <img
               src={def.src}
               className="sticker-image"
               alt=""
               draggable={false}
             />
+            <div
+              ref={shineRef}
+              className="sticker-shine"
+              style={{
+                WebkitMaskImage: `url("${def.src}")`,
+                maskImage: `url("${def.src}")`,
+              }}
+            >
+              <div className="sticker-shine-streak" />
+            </div>
           </div>
         </div>
         <div
@@ -329,13 +302,23 @@ export function Sticker({
           </div>
         </div>
         <div className="flap">
-          <div className="flap-light" style={{ filter: `url(#lightF-${def.id})` }}>
+          <div className="flap-light">
             <img
               src={def.src}
               className="flap-image"
               alt=""
               draggable={false}
             />
+            <div
+              ref={flapShineRef}
+              className="sticker-shine"
+              style={{
+                WebkitMaskImage: `url("${def.src}")`,
+                maskImage: `url("${def.src}")`,
+              }}
+            >
+              <div className="sticker-shine-streak" />
+            </div>
           </div>
         </div>
       </div>

@@ -3,9 +3,15 @@ import { useControls, folder } from "leva";
 import { Sticker } from "./Sticker";
 import { PresetPanel } from "./PresetPanel";
 import { STICKERS } from "./data";
+import { House } from "./House";
 import "./App.css";
 
 function App() {
+  if (window.location.pathname === "/house") return <House />;
+  return <Demo />;
+}
+
+function Demo() {
   const [values, set] = useControls(() => ({
     Sticker: folder({
       size: { value: 170, min: 80, max: 300, step: 2 },
@@ -14,17 +20,17 @@ function App() {
     }),
     Peel: folder({
       peelDirection: { value: -45, min: -180, max: 180, step: 1 },
-      peelHover: { value: 18, min: 0, max: 80, step: 0.5 },
-      peelLifted: { value: 32, min: 0, max: 80, step: 0.5 },
+      peelHover: { value: 12, min: 0, max: 80, step: 0.5 },
+      peelLifted: { value: 24, min: 0, max: 80, step: 0.5 },
     }),
     Lift: folder({
-      hoverScale: { value: 1.02, min: 1, max: 1.2, step: 0.005 },
-      liftScale: { value: 1.08, min: 1, max: 1.4, step: 0.005 },
+      hoverScale: { value: 1, min: 1, max: 1.2, step: 0.005 },
+      liftScale: { value: 1.04, min: 1, max: 1.4, step: 0.005 },
     }),
     Shadow: folder({
       shadowRest: { value: 2, min: 0, max: 40, step: 0.5 },
-      shadowHover: { value: 6, min: 0, max: 60, step: 0.5 },
-      shadowLifted: { value: 34, min: 0, max: 80, step: 0.5 },
+      shadowHover: { value: 2, min: 0, max: 60, step: 0.5 },
+      shadowLifted: { value: 16, min: 0, max: 80, step: 0.5 },
     }),
     Lighting: folder({
       lighting: { value: 0.18, min: 0, max: 1, step: 0.01 },

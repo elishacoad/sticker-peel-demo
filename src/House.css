@@ -1,0 +1,183 @@
+.house-stage {
+  position: fixed;
+  inset: 0;
+  background: #f3ede0;
+  overflow: hidden;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI",
+    system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: #2a2620;
+}
+
+.house-back-link {
+  position: fixed;
+  top: 18px;
+  left: 22px;
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #74706a;
+  text-decoration: none;
+  z-index: 1;
+}
+.house-back-link:hover { color: #2a2620; }
+
+.house-bg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -54%);
+  max-width: 86vw;
+  max-height: 76vh;
+  width: auto;
+  height: auto;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  filter: drop-shadow(0 12px 28px rgba(0, 0, 0, 0.08));
+}
+
+/* tray */
+.house-tray {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  width: min(1100px, calc(100vw - 32px));
+  height: 96px;
+  z-index: 1;
+  pointer-events: none;
+}
+.house-tray-rail {
+  position: absolute;
+  inset: 0;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 20px;
+  box-shadow: 0 6px 28px rgba(0, 0, 0, 0.06);
+  pointer-events: none;
+}
+
+/* ---------- per-sticker styles ---------- */
+
+.house-sticker-wrap {
+  position: absolute;
+  cursor: grab;
+  touch-action: none;
+  will-change: transform, filter, width, height;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  filter: drop-shadow(0 0 60px transparent) var(--shadow-rest);
+  transition:
+    filter var(--dur) var(--ease),
+    width var(--dur) var(--ease),
+    height var(--dur) var(--ease),
+    left var(--dur) var(--ease),
+    top var(--dur) var(--ease);
+}
+.house-sticker-wrap * {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.house-sticker-wrap:hover {
+  filter: drop-shadow(0 0 60px transparent) var(--shadow-hover);
+}
+.house-sticker-wrap.is-lifted {
+  cursor: grabbing;
+  filter: drop-shadow(0 0 60px transparent) var(--shadow-lifted);
+}
+
+.house-sticker-container {
+  position: absolute;
+  top: var(--inner-pad-y, 0);
+  left: var(--inner-pad-x, 0);
+  width: var(--inner-w, 100%);
+  height: var(--inner-h, 100%);
+  transform: rotate(var(--peel-direction));
+  transform-origin: center;
+}
+
+.house-sticker-main > *,
+.house-flap > * {
+  width: 100%;
+  height: 100%;
+  transform: rotate(calc(-1 * var(--peel-direction)));
+  transform-origin: center;
+}
+
+.house-sticker-main {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  clip-path: polygon(-15% var(--peel-offset), 115% var(--peel-offset), 115% 115%, -15% 115%);
+  transition: clip-path var(--dur) var(--ease);
+}
+.house-sticker-wrap:hover .house-sticker-main {
+  clip-path: polygon(
+    -15% calc(var(--peel-offset) + var(--peel-hover)),
+    115% calc(var(--peel-offset) + var(--peel-hover)),
+    115% 115%,
+    -15% 115%
+  );
+}
+.house-sticker-wrap.is-lifted .house-sticker-main {
+  clip-path: polygon(
+    -15% calc(var(--peel-offset) + var(--peel-lifted)),
+    115% calc(var(--peel-offset) + var(--peel-lifted)),
+    115% 115%,
+    -15% 115%
+  );
+}
+
+.house-sticker-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: url(#house-outline);
+  display: block;
+}
+
+.house-flap {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  top: calc(var(--peel-offset) * 2 - 100% - 1px);
+  clip-path: polygon(
+    -15% var(--peel-offset),
+    115% var(--peel-offset),
+    115% var(--peel-offset),
+    -15% var(--peel-offset)
+  );
+  transform: scaleY(-1);
+  transition: clip-path var(--dur) var(--ease), top var(--dur) var(--ease);
+}
+.house-sticker-wrap:hover .house-flap {
+  top: calc(var(--peel-offset) * 2 + var(--peel-hover) * 2 - 100% - 1px);
+  clip-path: polygon(
+    -15% var(--peel-offset),
+    115% var(--peel-offset),
+    115% calc(var(--peel-offset) + var(--peel-hover)),
+    -15% calc(var(--peel-offset) + var(--peel-hover))
+  );
+}
+.house-sticker-wrap.is-lifted .house-flap {
+  top: calc(var(--peel-offset) * 2 + var(--peel-lifted) * 2 - 100% - 1px);
+  clip-path: polygon(
+    -15% var(--peel-offset),
+    115% var(--peel-offset),
+    115% calc(var(--peel-offset) + var(--peel-lifted)),
+    -15% calc(var(--peel-offset) + var(--peel-lifted))
+  );
+}
+
+.house-flap-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  filter: url(#house-back);
+  display: block;
+}
