@@ -24,3 +24,7 @@ Then open the URL Vite prints. Tweak the effect live with the Leva panel in the 
 - Built on React 19, Vite 8, framer-motion 12.
 - Pure visual demo — no persistence, no backend.
 - Knobs include shadow tuning, peel direction/amount, drag sway, motion easing.
+
+## License
+
+MIT — see [LICENSE](./LICENSE).
