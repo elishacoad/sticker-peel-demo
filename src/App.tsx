@@ -34,8 +34,8 @@ function Demo() {
     }),
     Lighting: folder({
       lighting: { value: 0.18, min: 0, max: 1, step: 0.01 },
-      curlShadow: { value: 0.45, min: 0, max: 1, step: 0.01 },
-      curlShadowOffset: { value: 4, min: -20, max: 20, step: 0.5 },
+      curlShadow: { value: 0.4, min: 0, max: 1, step: 0.01 },
+      curlShadowOffset: { value: 8, min: -20, max: 20, step: 0.5 },
       curlShadowBlur: { value: 30, min: 0, max: 100, step: 0.5 },
     }),
     Motion: folder({

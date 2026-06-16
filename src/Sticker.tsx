@@ -1,8 +1,9 @@
-import { useState, useRef, useEffect, type CSSProperties } from "react";
+import { useState, useRef, useEffect, useMemo, type CSSProperties } from "react";
 import { motion, useMotionValue, animate, type PanInfo } from "framer-motion";
 import type { StickerDef } from "./data";
 import { usePeelOffset } from "./usePeelOffset";
 import { useAlphaMap } from "./useAlphaMap";
+import { registerHitTest } from "./pointerHitTest";
 
 type Knobs = {
   size: number;
@@ -27,6 +28,32 @@ type Knobs = {
 };
 
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
+
+const layeredShadow = (
+  n: number,
+  cy: number, cb: number, ca: number,
+  ay: number, ab: number, aa: number,
+) =>
+  `drop-shadow(0 ${n * cy}px ${n * cb}px rgba(17,24,39,${ca})) ` +
+  `drop-shadow(0 ${n * ay}px ${n * ab}px rgba(17,24,39,${aa}))`;
+
+// Project a client-space point into the sticker's upright local frame.
+// Returns coords relative to the wrap's center, un-rotated by the wrap's
+// current rotation — same math both the shine tracker and hit-test need.
+const toLocal = (
+  el: HTMLElement,
+  clientX: number,
+  clientY: number,
+  rotationDeg: number,
+) => {
+  const rect = el.getBoundingClientRect();
+  const dx = clientX - (rect.left + rect.width / 2);
+  const dy = clientY - (rect.top + rect.height / 2);
+  const theta = (-rotationDeg * Math.PI) / 180;
+  const c = Math.cos(theta);
+  const s = Math.sin(theta);
+  return { lx: dx * c - dy * s, ly: dx * s + dy * c };
+};
 
 export function Sticker({
   def,
@@ -84,29 +111,18 @@ export function Sticker({
   useEffect(() => {
     const el = wrapRef.current;
     if (!el) return;
-    const move = (e: MouseEvent) => {
-      const rect = el.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const dx = e.clientX - cx;
-      const dy = e.clientY - cy;
-      const theta = (-rotation.get() * Math.PI) / 180;
-      const c = Math.cos(theta);
-      const s = Math.sin(theta);
-      const localDx = dx * c - dy * s;
-      const localDy = dx * s + dy * c;
+    const move = (e: PointerEvent) => {
+      const { lx: localDx, ly: localDy } = toLocal(el, e.clientX, e.clientY, rotation.get());
       const lx = localDx + knobs.size / 2;
       const ly = localDy + knobs.size / 2;
       const front = (50 * (lx + ly)) / knobs.size;
-      // Flap content is scaleY(-1)-flipped, so its image-local y is
-      // mirrored relative to the front. Project with mirrored y so the
-      // band on the back tracks the same visual cursor position.
+      // Flap content is scaleY(-1)-flipped, so mirror y for the back band.
       const back = (50 * (lx + (knobs.size - ly))) / knobs.size;
       shineRef.current?.style.setProperty("--shine-pos", `${front}%`);
       flapShineRef.current?.style.setProperty("--shine-pos", `${back}%`);
     };
-    el.addEventListener("mousemove", move);
-    return () => el.removeEventListener("mousemove", move);
+    el.addEventListener("pointermove", move);
+    return () => el.removeEventListener("pointermove", move);
   }, [knobs.size, rotation]);
 
   // Silhouette-based hit testing — sample the PNG's alpha at the cursor's
@@ -117,60 +133,41 @@ export function Sticker({
     const el = wrapRef.current;
     if (!el) return;
 
-    const onMove = (e: PointerEvent) => {
-      // While dragging, keep events live regardless of cursor position
-      // so a flick doesn't cause the wrap to drop the pointer mid-drag.
-      if (liftedRef.current) {
-        el.style.pointerEvents = "auto";
-        return;
-      }
+    return registerHitTest({
+      isLifted: () => liftedRef.current,
+      setOver: (over) => {
+        el.style.pointerEvents = over ? "auto" : "none";
+      },
+      test: (clientX, clientY) => {
+        const { lx: localDx, ly: localDy } = toLocal(el, clientX, clientY, rotation.get());
+        const nx = (localDx + knobs.size / 2) / knobs.size;
+        const ny = (localDy + knobs.size / 2) / knobs.size;
 
-      const rect = el.getBoundingClientRect();
-      const cx = rect.left + rect.width / 2;
-      const cy = rect.top + rect.height / 2;
-      const dx = e.clientX - cx;
-      const dy = e.clientY - cy;
+        const sample = (x: number, y: number) => {
+          if (x < 0 || x > 1 || y < 0 || y > 1) return 0;
+          const px = Math.floor(x * alphaMap.w);
+          const py = Math.floor(y * alphaMap.h);
+          return alphaMap.data[(py * alphaMap.w + px) * 4 + 3];
+        };
 
-      // un-rotate by wrap's current rotation to land in the upright
-      // image's local coord frame
-      const theta = (-rotation.get() * Math.PI) / 180;
-      const c = Math.cos(theta);
-      const s = Math.sin(theta);
-      const localDx = dx * c - dy * s;
-      const localDy = dx * s + dy * c;
-
-      const nx = (localDx + knobs.size / 2) / knobs.size;
-      const ny = (localDy + knobs.size / 2) / knobs.size;
-
-      const sample = (x: number, y: number) => {
-        if (x < 0 || x > 1 || y < 0 || y > 1) return 0;
-        const px = Math.floor(x * alphaMap.w);
-        const py = Math.floor(y * alphaMap.h);
-        return alphaMap.data[(py * alphaMap.w + px) * 4 + 3];
-      };
-
-      // Hit-test against the silhouette plus the white outline halo. We
-      // approximate the dilated alpha by sampling 8 points around the
-      // cursor at the outline radius (in normalised image coords) — if
-      // ANY of them is opaque, the cursor is over the outline ring.
-      const r = (knobs.outlineRadius + knobs.outlineSmooth) / knobs.size;
-      const d = r * 0.7071; // sqrt(2)/2 for diagonals
-      const over =
-        sample(nx, ny) > 30 ||
-        (r > 0 &&
-          (sample(nx + r, ny) > 30 ||
-            sample(nx - r, ny) > 30 ||
-            sample(nx, ny + r) > 30 ||
-            sample(nx, ny - r) > 30 ||
-            sample(nx + d, ny + d) > 30 ||
-            sample(nx - d, ny + d) > 30 ||
-            sample(nx + d, ny - d) > 30 ||
-            sample(nx - d, ny - d) > 30));
-      el.style.pointerEvents = over ? "auto" : "none";
-    };
-
-    document.addEventListener("pointermove", onMove);
-    return () => document.removeEventListener("pointermove", onMove);
+        // 8-point ring sample at the outline radius approximates the
+        // dilated silhouette so the halo is also hit-testable.
+        const r = (knobs.outlineRadius + knobs.outlineSmooth) / knobs.size;
+        const d = r * 0.7071;
+        return (
+          sample(nx, ny) > 30 ||
+          (r > 0 &&
+            (sample(nx + r, ny) > 30 ||
+              sample(nx - r, ny) > 30 ||
+              sample(nx, ny + r) > 30 ||
+              sample(nx, ny - r) > 30 ||
+              sample(nx + d, ny + d) > 30 ||
+              sample(nx - d, ny + d) > 30 ||
+              sample(nx + d, ny - d) > 30 ||
+              sample(nx - d, ny - d) > 30))
+        );
+      },
+    });
   }, [
     alphaMap,
     knobs.size,
@@ -211,29 +208,27 @@ export function Sticker({
     "--lift-scale": knobs.liftScale,
     "--ease": knobs.ease,
     "--dur": `${knobs.durMs}ms`,
-    "--shadow-rest": `drop-shadow(0 ${knobs.shadowRest * 0.4}px ${knobs.shadowRest * 1.8}px rgba(0,0,0,0.08))`,
-    "--shadow-hover": `drop-shadow(0 ${knobs.shadowHover * 0.45}px ${knobs.shadowHover * 1.8}px rgba(0,0,0,0.11))`,
-    "--shadow-lifted": `drop-shadow(0 ${knobs.shadowLifted * 0.5}px ${knobs.shadowLifted * 1.8}px rgba(0,0,0,0.18))`,
+    // Tight contact shadow + soft ambient, tinted cool slate so it reads as scene light, not flat black.
+    "--shadow-rest": layeredShadow(knobs.shadowRest, 0.15, 0.35, 0.1, 0.6, 2.2, 0.06),
+    "--shadow-hover": layeredShadow(knobs.shadowHover, 0.18, 0.4, 0.12, 0.7, 2.4, 0.08),
+    "--shadow-lifted": layeredShadow(knobs.shadowLifted, 0.12, 0.28, 0.14, 0.55, 2.0, 0.12),
   };
 
-  return (
-    <motion.div
-      ref={wrapRef}
-      className={`sticker-wrap${lifted ? " is-lifted" : ""}`}
-      style={{ ...styleVars, x, y, rotate: rotation }}
-      drag
-      dragMomentum={false}
-      dragElastic={0}
-      onPointerDown={() => {
-        bringToFront();
-        setLifted(true);
-      }}
-      onPointerUp={() => setLifted(false)}
-      onPointerCancel={() => setLifted(false)}
-      onDragStart={onDragStart}
-      onDrag={onDrag}
-      onDragEnd={onDragEnd}
-    >
+  // Memoize the mask style so the shine layers don't get a new object
+  // every render (preserves React's style-diff bail-out).
+  const maskStyle = useMemo<CSSProperties>(
+    () => ({
+      WebkitMaskImage: `url("${def.src}")`,
+      maskImage: `url("${def.src}")`,
+    }),
+    [def.src],
+  );
+
+  // SVG filter only depends on knobs that change the curl shadow itself;
+  // memoizing avoids re-baking the filter pipeline on unrelated rerenders
+  // (drag, hover, z-order).
+  const curlFilterSvg = useMemo(
+    () => (
       <svg
         width="0"
         height="0"
@@ -241,10 +236,9 @@ export function Sticker({
         aria-hidden
       >
         <defs>
-          {/* Outputs ONLY the shadow — does not merge SourceGraphic, so the
-              source's white silhouette never paints. That lets us extend
-              the mask past the peel area without revealing white outside
-              the visible peel, which is what kills the hard cut edge. */}
+          {/* Outputs ONLY the shadow — no SourceGraphic merge — so the
+              source silhouette never paints and the mask can extend past
+              the peel area without revealing white. */}
           <filter
             id={`curl-shadow-${def.id}`}
             filterUnits="objectBoundingBox"
@@ -264,6 +258,29 @@ export function Sticker({
           </filter>
         </defs>
       </svg>
+    ),
+    [def.id, knobs.curlShadow, knobs.curlShadowOffset, knobs.curlShadowBlur],
+  );
+
+  return (
+    <motion.div
+      ref={wrapRef}
+      className={`sticker-wrap${lifted ? " is-lifted" : ""}`}
+      style={{ ...styleVars, x, y, rotate: rotation }}
+      drag
+      dragMomentum={false}
+      dragElastic={0}
+      onPointerDown={() => {
+        bringToFront();
+        setLifted(true);
+      }}
+      onPointerUp={() => setLifted(false)}
+      onPointerCancel={() => setLifted(false)}
+      onDragStart={onDragStart}
+      onDrag={onDrag}
+      onDragEnd={onDragEnd}
+    >
+      {curlFilterSvg}
 
       <div className="sticker-container">
         <div className="sticker-main">
@@ -277,10 +294,7 @@ export function Sticker({
             <div
               ref={shineRef}
               className="sticker-shine"
-              style={{
-                WebkitMaskImage: `url("${def.src}")`,
-                maskImage: `url("${def.src}")`,
-              }}
+              style={maskStyle}
             >
               <div className="sticker-shine-streak" />
             </div>
@@ -312,10 +326,7 @@ export function Sticker({
             <div
               ref={flapShineRef}
               className="sticker-shine"
-              style={{
-                WebkitMaskImage: `url("${def.src}")`,
-                maskImage: `url("${def.src}")`,
-              }}
+              style={maskStyle}
             >
               <div className="sticker-shine-streak" />
             </div>
