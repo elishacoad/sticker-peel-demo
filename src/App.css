@@ -64,31 +64,88 @@ body {
   position: absolute;
   cursor: grab;
   touch-action: none;
-  will-change: transform, filter;
+  will-change: transform;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
   scale: 1;
-  /* The leading drop-shadow with transparent color and a large blur
-     widens the wrap's filter canvas so the descendant curl-shadow has
-     room to render without being clipped at the canvas edge. The second
-     drop-shadow is the actual ambient shadow that follows the wrap's
-     content alpha — naturally changing shape as the peel clip-path
-     and flap reveal different sticker geometry. */
-  filter: drop-shadow(0 0 80px transparent) var(--shadow-rest);
+  /* Shadow lives on sibling .sticker-shadow-* layers below, so the
+     wrap is filter-free and peel transitions don't re-rasterize the
+     full subtree through a drop-shadow chain. */
   --peel-current: 0%;
   transition:
     scale var(--dur) var(--ease),
-    filter var(--dur) var(--ease),
     --peel-current var(--dur) var(--ease);
 }
 
 .sticker-wrap:hover {
-  filter: drop-shadow(0 0 80px transparent) var(--shadow-hover);
   --peel-current: var(--peel-hover);
 }
 .sticker-wrap.is-lifted {
-  filter: drop-shadow(0 0 80px transparent) var(--shadow-lifted);
   --peel-current: var(--peel-lifted);
+}
+
+/* Compositor-only shadow — two tinted, masked silhouettes with a
+   static blur. Transitions only touch `opacity` and `transform`, so
+   the GPU reuses the cached raster across rest/hover/lifted. Blur
+   itself depends on the shadow knobs (re-rasters on knob change, not
+   per frame). The original used filter:drop-shadow on the wrap which
+   re-rasterized the whole subtree (incl. baked-image siblings) every
+   frame of the peel — this trades a touch of shape morph during peel
+   for an order-of-magnitude cheaper composite path. */
+.sticker-shadow {
+  position: absolute;
+  top: var(--inner-pad, 0px);
+  left: var(--inner-pad, 0px);
+  width: var(--inner-size, 100%);
+  height: var(--inner-size, 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.sticker-shadow-contact,
+.sticker-shadow-ambient {
+  position: absolute;
+  inset: 0;
+  background-color: rgba(60, 38, 20, 1);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-mode: alpha;
+  mask-mode: alpha;
+  pointer-events: none;
+  will-change: opacity, transform;
+  transition:
+    opacity var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
+}
+
+.sticker-shadow-contact {
+  filter: blur(var(--sc-blur));
+  opacity: var(--sc-op-rest);
+  transform: translate(var(--sc-x-rest), var(--sc-y-rest));
+}
+.sticker-shadow-ambient {
+  filter: blur(var(--sa-blur));
+  opacity: var(--sa-op-rest);
+  transform: translate(var(--sa-x-rest), var(--sa-y-rest));
+}
+
+.sticker-wrap:hover .sticker-shadow-contact {
+  opacity: var(--sc-op-hover);
+  transform: translate(var(--sc-x-hover), var(--sc-y-hover));
+}
+.sticker-wrap:hover .sticker-shadow-ambient {
+  opacity: var(--sa-op-hover);
+  transform: translate(var(--sa-x-hover), var(--sa-y-hover));
+}
+.sticker-wrap.is-lifted .sticker-shadow-contact {
+  opacity: var(--sc-op-lifted);
+  transform: translate(var(--sc-x-lifted), var(--sc-y-lifted));
+}
+.sticker-wrap.is-lifted .sticker-shadow-ambient {
+  opacity: var(--sa-op-lifted);
+  transform: translate(var(--sa-x-lifted), var(--sa-y-lifted));
 }
 
 .sticker-wrap * {
