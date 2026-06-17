@@ -6,6 +6,9 @@ import "./App.css";
 
 function App() {
   const values = useControls({
+    Stage: folder({
+      bgColor: { value: "#efe9dd", label: "background" },
+    }),
     Sticker: folder({
       size: { value: 170, min: 80, max: 300, step: 2 },
       outlineRadius: { value: 5, min: 1, max: 14, step: 0.5 },
@@ -21,15 +24,19 @@ function App() {
       liftScale: { value: 1.04, min: 1, max: 1.4, step: 0.005 },
     }),
     Shadow: folder({
-      shadowRest: { value: 2, min: 0, max: 40, step: 0.5 },
-      shadowHover: { value: 2, min: 0, max: 60, step: 0.5 },
+      shadowRest: { value: 4, min: 0, max: 40, step: 0.5 },
+      shadowHover: { value: 4, min: 0, max: 60, step: 0.5 },
       shadowLifted: { value: 16, min: 0, max: 80, step: 0.5 },
+      shadowBlurRest: { value: 0, min: 0, max: 2, step: 0.05 },
+      shadowBlurHover: { value: 0, min: 0, max: 2, step: 0.05 },
+      shadowBlurLifted: { value: 1, min: 0, max: 2, step: 0.05 },
     }),
     Lighting: folder({
       lighting: { value: 0.18, min: 0, max: 1, step: 0.01 },
-      curlShadow: { value: 0.4, min: 0, max: 1, step: 0.01 },
+      curlShadowHover: { value: 0.45, min: 0, max: 1, step: 0.01 },
+      curlShadowLifted: { value: 0.2, min: 0, max: 1, step: 0.01 },
       curlShadowOffset: { value: 8, min: -20, max: 20, step: 0.5 },
-      curlShadowBlur: { value: 30, min: 0, max: 100, step: 0.5 },
+      curlShadowBlur: { value: 25, min: 0, max: 100, step: 0.5 },
     }),
     Motion: folder({
       ease: {
@@ -53,7 +60,7 @@ function App() {
     setOrder((prev) => [...prev.filter((x) => x !== id), id]);
 
   return (
-    <div className="stage">
+    <div className="stage" style={{ backgroundColor: values.bgColor }}>
       <svg className="svg-defs" aria-hidden>
         <defs>
           <filter id="sticker-outline" x="-25%" y="-25%" width="150%" height="150%">

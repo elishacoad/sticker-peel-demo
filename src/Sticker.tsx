@@ -17,11 +17,15 @@ type Knobs = {
   shadowRest: number;
   shadowHover: number;
   shadowLifted: number;
+  shadowBlurRest: number;
+  shadowBlurHover: number;
+  shadowBlurLifted: number;
   ease: string;
   durMs: number;
   swayMax: number;
   swayGain: number;
-  curlShadow: number;
+  curlShadowHover: number;
+  curlShadowLifted: number;
   curlShadowOffset: number;
   curlShadowBlur: number;
   outlineSmooth: number;
@@ -33,9 +37,10 @@ const layeredShadow = (
   n: number,
   cy: number, cb: number, ca: number,
   ay: number, ab: number, aa: number,
+  blurScale: number = 1,
 ) =>
-  `drop-shadow(0 ${n * cy}px ${n * cb}px rgba(17,24,39,${ca})) ` +
-  `drop-shadow(0 ${n * ay}px ${n * ab}px rgba(17,24,39,${aa}))`;
+  `drop-shadow(${n * cy * 0.6}px ${n * cy}px ${n * cb * blurScale}px rgba(60,38,20,${ca})) ` +
+  `drop-shadow(${n * ay * 0.6}px ${n * ay}px ${n * ab * blurScale}px rgba(60,38,20,${aa}))`;
 
 // Project a client-space point into the sticker's upright local frame.
 // Returns coords relative to the wrap's center, un-rotated by the wrap's
@@ -209,9 +214,9 @@ export function Sticker({
     "--ease": knobs.ease,
     "--dur": `${knobs.durMs}ms`,
     // Tight contact shadow + soft ambient, tinted cool slate so it reads as scene light, not flat black.
-    "--shadow-rest": layeredShadow(knobs.shadowRest, 0.15, 0.35, 0.1, 0.6, 2.2, 0.06),
-    "--shadow-hover": layeredShadow(knobs.shadowHover, 0.18, 0.4, 0.12, 0.7, 2.4, 0.08),
-    "--shadow-lifted": layeredShadow(knobs.shadowLifted, 0.12, 0.28, 0.14, 0.55, 2.0, 0.12),
+    "--shadow-rest": layeredShadow(knobs.shadowRest, 0.15, 0.35, 0.1, 0.6, 2.2, 0.06, knobs.shadowBlurRest),
+    "--shadow-hover": layeredShadow(knobs.shadowHover, 0.18, 0.4, 0.12, 0.7, 2.4, 0.08, knobs.shadowBlurHover),
+    "--shadow-lifted": layeredShadow(knobs.shadowLifted, 0.12, 0.28, 0.14, 0.55, 2.0, 0.12, knobs.shadowBlurLifted),
   };
 
   // Memoize the mask style so the shine layers don't get a new object
@@ -224,42 +229,50 @@ export function Sticker({
     [def.src],
   );
 
-  // SVG filter only depends on knobs that change the curl shadow itself;
-  // memoizing avoids re-baking the filter pipeline on unrelated rerenders
-  // (drag, hover, z-order).
-  const curlFilterSvg = useMemo(
-    () => (
-      <svg
-        width="0"
-        height="0"
-        style={{ position: "absolute", pointerEvents: "none" }}
-        aria-hidden
-      >
-        <defs>
-          {/* Outputs ONLY the shadow — no SourceGraphic merge — so the
-              source silhouette never paints and the mask can extend past
-              the peel area without revealing white. */}
-          <filter
-            id={`curl-shadow-${def.id}`}
-            filterUnits="objectBoundingBox"
-            x="-1"
-            y="-1"
-            width="3"
-            height="3"
-          >
-            <feGaussianBlur
-              in="SourceAlpha"
-              stdDeviation={knobs.curlShadowBlur / 2}
-              result="blur"
-            />
-            <feOffset in="blur" dy={knobs.curlShadowOffset} result="offset" />
-            <feFlood floodColor="black" floodOpacity={knobs.curlShadow} />
-            <feComposite in2="offset" operator="in" />
-          </filter>
-        </defs>
-      </svg>
-    ),
-    [def.id, knobs.curlShadow, knobs.curlShadowOffset, knobs.curlShadowBlur],
+  // Animate curl-shadow opacity between hover/lifted targets so the
+  // transition is smooth instead of a hard filter swap.
+  const [curlOpacity, setCurlOpacity] = useState(knobs.curlShadowHover);
+  useEffect(() => {
+    const target = lifted ? knobs.curlShadowLifted : knobs.curlShadowHover;
+    const controls = animate(curlOpacity, target, {
+      duration: knobs.durMs / 1000,
+      ease: "easeOut",
+      onUpdate: (v) => setCurlOpacity(v),
+    });
+    return () => controls.stop();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lifted, knobs.curlShadowHover, knobs.curlShadowLifted, knobs.durMs]);
+
+  const curlFilterSvg = (
+    <svg
+      width="0"
+      height="0"
+      style={{ position: "absolute", pointerEvents: "none" }}
+      aria-hidden
+    >
+      <defs>
+        {/* Outputs ONLY the shadow — no SourceGraphic merge — so the
+            source silhouette never paints and the mask can extend past
+            the peel area without revealing white. */}
+        <filter
+          id={`curl-shadow-${def.id}`}
+          filterUnits="objectBoundingBox"
+          x="-1"
+          y="-1"
+          width="3"
+          height="3"
+        >
+          <feGaussianBlur
+            in="SourceAlpha"
+            stdDeviation={knobs.curlShadowBlur / 2}
+            result="blur"
+          />
+          <feOffset in="blur" dy={knobs.curlShadowOffset} result="offset" />
+          <feFlood floodColor="black" floodOpacity={curlOpacity} />
+          <feComposite in2="offset" operator="in" />
+        </filter>
+      </defs>
+    </svg>
   );
 
   return (
