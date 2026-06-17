@@ -91,12 +91,14 @@ export function Sticker({
     "outline",
     knobs.outlineRadius,
     knobs.outlineSmooth,
+    knobs.size,
   );
   const backBaked = useOutlinedImage(
     def.src,
     "back",
     knobs.outlineRadius,
     knobs.outlineSmooth,
+    knobs.size,
   );
 
   const rotation = useMotionValue(def.rot);

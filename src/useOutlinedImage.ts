@@ -66,11 +66,19 @@ const loadImageSize = (url: string): Promise<{ w: number; h: number }> =>
 // Bake the runtime SVG outline/back filter into a one-shot bitmap so
 // the per-frame filter cost (feMorphology + Gaussian + componentTransfer
 // + composite + merge) collapses to a single rasterization at mount.
+//
+// `displaySize` is the CSS px size the sticker is rendered at. The
+// SVG canvas is sized to match so that `outlineRadius=5` produces the
+// same 5-CSS-px outline the runtime filter did. Without this, baking
+// at the source PNG's resolution (often 512px) would shrink the
+// outline to ~1/3 its intended thickness when the bitmap is scaled
+// down for display.
 export function useOutlinedImage(
   src: string,
   mode: Mode,
   outlineRadius: number,
   outlineSmooth: number,
+  displaySize: number,
 ): string | null {
   const [url, setUrl] = useState<string | null>(null);
 
@@ -80,11 +88,19 @@ export function useOutlinedImage(
 
     const bake = async () => {
       const dataUrl = await fetchAsDataUrl(src);
-      const { w, h } = await loadImageSize(dataUrl);
-      const padW = Math.round(w * OUTLINE_PAD_FRAC);
-      const padH = Math.round(h * OUTLINE_PAD_FRAC);
-      const totalW = w + padW * 2;
-      const totalH = h + padH * 2;
+      // Source dimensions only matter for aspect-ratio; the SVG canvas
+      // is sized in display units so filter coords line up with runtime.
+      const { w: srcW, h: srcH } = await loadImageSize(dataUrl);
+      const aspect = srcW / srcH;
+      const imgW = aspect >= 1 ? displaySize : displaySize * aspect;
+      const imgH = aspect >= 1 ? displaySize / aspect : displaySize;
+      const padW = Math.round(displaySize * OUTLINE_PAD_FRAC);
+      const padH = Math.round(displaySize * OUTLINE_PAD_FRAC);
+      const totalW = Math.round(displaySize + padW * 2);
+      const totalH = Math.round(displaySize + padH * 2);
+      // Center the (possibly non-square) image inside the padded box.
+      const imgX = padW + (displaySize - imgW) / 2;
+      const imgY = padH + (displaySize - imgH) / 2;
 
       const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${totalW}" height="${totalH}" viewBox="0 0 ${totalW} ${totalH}">
         <defs>
@@ -92,7 +108,7 @@ export function useOutlinedImage(
             ${filterPrimitives(mode, outlineRadius, outlineSmooth)}
           </filter>
         </defs>
-        <image href="${dataUrl}" x="${padW}" y="${padH}" width="${w}" height="${h}" filter="url(#f)"/>
+        <image href="${dataUrl}" x="${imgX}" y="${imgY}" width="${imgW}" height="${imgH}" filter="url(#f)"/>
       </svg>`;
 
       const blob = new Blob([svg], { type: "image/svg+xml" });
@@ -111,7 +127,7 @@ export function useOutlinedImage(
       cancelled = true;
       if (createdUrl) URL.revokeObjectURL(createdUrl);
     };
-  }, [src, mode, outlineRadius, outlineSmooth]);
+  }, [src, mode, outlineRadius, outlineSmooth, displaySize]);
 
   return url;
 }
