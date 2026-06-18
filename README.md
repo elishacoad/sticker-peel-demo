@@ -2,6 +2,8 @@
 
 Interactive sticker peel + drag effect built with React, Vite, and Framer Motion. Stickers can be picked up, dragged, rotated by sway, and re-placed — with a curled flap that casts its own shadow, an alpha-shape hit test, and a cursor-tracked shine band.
 
+Live demo: https://sticker-peel-demo.vercel.app/
+
 ![sticker peel demo](./docs/demo.gif)
 
 ## Run
