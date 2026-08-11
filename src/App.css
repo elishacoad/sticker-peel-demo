@@ -1,5 +1,5 @@
 :root {
-  --bg: #efe9dd;
+  --bg: #f5f8f8;
   --fg: #1a1a1c;
   --fg-dim: #74706a;
 }
@@ -34,6 +34,11 @@ body {
   inset: 0;
   background-image: radial-gradient(rgba(0, 0, 0, 0.06) 1.2px, transparent 1.2px);
   background-size: 18px 18px;
+}
+
+/* Dot grid off — flat stage, for screenshotting stickers on a clean field. */
+.stage.is-plain {
+  background-image: none;
 }
 
 .svg-defs {

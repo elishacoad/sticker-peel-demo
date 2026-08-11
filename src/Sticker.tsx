@@ -5,9 +5,11 @@ import { usePeelOffset } from "./usePeelOffset";
 import { useAlphaMap } from "./useAlphaMap";
 import { registerHitTest } from "./pointerHitTest";
 import { useOutlinedImage, OUTLINE_PAD_FRAC } from "./useOutlinedImage";
+import { useSolidArtwork } from "./useSolidArtwork";
 
 type Knobs = {
   size: number;
+  outlineSource: string;
   outlineRadius: number;
   peelHover: number;
   peelLifted: number;
@@ -74,8 +76,22 @@ export function Sticker({
 }) {
   const [lifted, setLifted] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
-  const silhouetteOffset = usePeelOffset(def.src, knobs.peelDirection);
-  const alphaMap = useAlphaMap(def.src);
+
+  // Artwork that already carries a border opts out per-sticker, so a
+  // mixed set can have some die-cut here and some baked into the PNG.
+  // "Off" is radius 0 rather than a skipped bake: the flap still needs
+  // its white underside, just cut exactly at the silhouette.
+  const drawOutline = knobs.outlineSource === "add" && !def.hasOutline;
+  const outlineRadius = drawOutline ? knobs.outlineRadius : 0;
+  const outlineSmooth = drawOutline ? knobs.outlineSmooth : 0;
+
+  // Seal enclosed gaps before anything downstream touches the artwork,
+  // so the silhouette, alpha map, outline bake and shine mask all agree
+  // on one shape. Falls back to the raw art while the pass is in flight.
+  const src = useSolidArtwork(def.src) ?? def.src;
+
+  const silhouetteOffset = usePeelOffset(src, knobs.peelDirection);
+  const alphaMap = useAlphaMap(src);
   const liftedRef = useRef(lifted);
   liftedRef.current = lifted;
   const shineRef = useRef<HTMLDivElement>(null);
@@ -87,17 +103,17 @@ export function Sticker({
   // async bake is in-flight we fall back to the original PNG + live
   // CSS filter so initial render still looks correct.
   const outlineBaked = useOutlinedImage(
-    def.src,
+    src,
     "outline",
-    knobs.outlineRadius,
-    knobs.outlineSmooth,
+    outlineRadius,
+    outlineSmooth,
     knobs.size,
   );
   const backBaked = useOutlinedImage(
-    def.src,
+    src,
     "back",
-    knobs.outlineRadius,
-    knobs.outlineSmooth,
+    outlineRadius,
+    outlineSmooth,
     knobs.size,
   );
 
@@ -190,7 +206,7 @@ export function Sticker({
 
         // 8-point ring sample at the outline radius approximates the
         // dilated silhouette so the halo is also hit-testable.
-        const r = (knobs.outlineRadius + knobs.outlineSmooth) / knobs.size;
+        const r = (outlineRadius + outlineSmooth) / knobs.size;
         const d = r * 0.7071;
         return (
           sample(nx, ny) > 30 ||
@@ -209,8 +225,8 @@ export function Sticker({
   }, [
     alphaMap,
     knobs.size,
-    knobs.outlineRadius,
-    knobs.outlineSmooth,
+    outlineRadius,
+    outlineSmooth,
     rotation,
   ]);
 
@@ -219,7 +235,7 @@ export function Sticker({
   // While silhouetteOffset is still loading, fall back to -10% so peel
   // doesn't snap when it arrives.
   const outlinePct =
-    ((knobs.outlineRadius + knobs.outlineSmooth) / knobs.size) * 100;
+    ((outlineRadius + outlineSmooth) / knobs.size) * 100;
   const peelAnchor =
     silhouetteOffset != null ? silhouetteOffset - outlinePct : -10;
 
@@ -283,10 +299,10 @@ export function Sticker({
   // every render (preserves React's style-diff bail-out).
   const maskStyle = useMemo<CSSProperties>(
     () => ({
-      WebkitMaskImage: `url("${def.src}")`,
-      maskImage: `url("${def.src}")`,
+      WebkitMaskImage: `url("${src}")`,
+      maskImage: `url("${src}")`,
     }),
-    [def.src],
+    [src],
   );
 
   // Animate curl-shadow opacity between hover/lifted targets. Drive a
@@ -367,7 +383,7 @@ export function Sticker({
         <div className="sticker-main">
           <div className="sticker-light">
             <img
-              src={outlineBaked ?? def.src}
+              src={outlineBaked ?? src}
               className="sticker-image"
               alt=""
               draggable={false}
@@ -389,7 +405,7 @@ export function Sticker({
           <div className="curl-shadow-inner">
             <div className="flap-shadow-source">
               <img
-                src={backBaked ?? def.src}
+                src={backBaked ?? src}
                 className="flap-image-shadow"
                 alt=""
                 draggable={false}
@@ -401,7 +417,7 @@ export function Sticker({
         <div className="flap">
           <div className="flap-light">
             <img
-              src={backBaked ?? def.src}
+              src={backBaked ?? src}
               className="flap-image"
               alt=""
               draggable={false}

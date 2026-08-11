@@ -7,12 +7,29 @@ import "./App.css";
 function App() {
   const values = useControls({
     Stage: folder({
-      bgColor: { value: "#efe9dd", label: "background" },
+      bgColor: { value: "#f5f8f8", label: "background" },
+      bgDots: { value: true, label: "dots" },
     }),
     Sticker: folder({
       size: { value: 170, min: 80, max: 300, step: 2 },
-      outlineRadius: { value: 5, min: 1, max: 14, step: 0.5 },
-      outlineSmooth: { value: 3, min: 0, max: 8, step: 0.25 },
+      outlineSource: {
+        value: "add",
+        label: "outline",
+        options: {
+          "generate die-cut": "add",
+          "already in artwork": "artwork",
+        },
+      },
+      // Only meaningful when we're the ones drawing the border, so they
+      // stay hidden otherwise rather than sitting there doing nothing.
+      outlineRadius: {
+        value: 5, min: 1, max: 14, step: 0.5,
+        render: (get) => get("Sticker.outlineSource") === "add",
+      },
+      outlineSmooth: {
+        value: 3, min: 0, max: 8, step: 0.25,
+        render: (get) => get("Sticker.outlineSource") === "add",
+      },
     }),
     Peel: folder({
       peelDirection: { value: -45, min: -180, max: 180, step: 1 },
@@ -60,7 +77,10 @@ function App() {
     setOrder((prev) => [...prev.filter((x) => x !== id), id]);
 
   return (
-    <div className="stage" style={{ backgroundColor: values.bgColor }}>
+    <div
+      className={`stage${values.bgDots ? "" : " is-plain"}`}
+      style={{ backgroundColor: values.bgColor }}
+    >
       <svg className="svg-defs" aria-hidden>
         <defs>
           <filter id="sticker-outline" x="-25%" y="-25%" width="150%" height="150%">
