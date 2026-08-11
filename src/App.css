@@ -63,6 +63,34 @@ body {
   z-index: 1;
 }
 
+/* Source link. Sits above the stickers so a sticker dropped in the corner
+   can't bury it. */
+.github-link {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 50;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #8a8a90;
+  box-shadow: 0 2px 10px -4px rgba(0, 0, 0, 0.3);
+  transition: color 120ms ease;
+}
+
+.github-link:hover {
+  color: #000000;
+}
+
+.github-link:focus-visible {
+  outline: 2px solid rgba(0, 0, 0, 0.25);
+  outline-offset: 2px;
+}
+
 /* ----- sticker structure ----- */
 
 .sticker-wrap {

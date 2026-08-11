@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useControls, folder } from "leva";
 import { Sticker } from "./Sticker";
+import { GithubLink } from "./GithubLink";
 import { STICKERS } from "./data";
 import "./App.css";
 
@@ -129,6 +130,8 @@ function App() {
           bringToFront={() => bringToFront(s.id)}
         />
       ))}
+
+      <GithubLink />
     </div>
   );
 }
